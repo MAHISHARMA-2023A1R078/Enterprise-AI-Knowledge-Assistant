@@ -48,3 +48,18 @@ export async function sendMessage(question) {
 
   return data;
 }
+
+// Delete a PDF document and its stored chunks
+export async function deleteDocument(documentId) {
+  const response = await fetch(`${API_BASE_URL}/documents/${documentId}`, {
+    method: "DELETE",
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.detail || "Document deletion failed");
+  }
+
+  return data;
+}

@@ -4,7 +4,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.services.pdf_service import extract_and_chunk_pdf
-from app.services.qdrant_service import store_chunks
+from app.services.qdrant_service import store_chunks, delete_document_chunks
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -81,3 +81,36 @@ async def upload_pdf(file: UploadFile = File(...)):
 
     finally:
         await file.close()
+
+
+
+@router.delete("/{document_id}")
+async def delete_document(document_id: str):
+    """Delete a PDF and all its stored chunks."""
+
+    file_path = UPLOAD_DIR / f"{document_id}.pdf"
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found."
+        )
+
+    try:
+        # 1. Delete document chunks from Qdrant
+        delete_document_chunks(document_id)
+
+        # 2. Delete the physical PDF
+        file_path.unlink()
+
+        return {
+            "message": "Document deleted successfully.",
+            "document_id": document_id
+        }
+
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Document deletion failed: {str(error)}"
+        )
+

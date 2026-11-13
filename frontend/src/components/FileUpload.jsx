@@ -1,34 +1,29 @@
-function FileUpload({ onUpload, uploading, uploadResult }) {
+function FileUpload({ onUpload, uploading }) {
   const handleFileChange = (event) => {
-    const file = event.target.files[0];
+    const files = Array.from(event.target.files);
 
-    if (file) {
-      onUpload(file);
-      event.target.value = "";
+    if (files.length > 0) {
+      onUpload(files);
     }
+
+    event.target.value = "";
   };
 
   return (
     <div className="upload-section">
       <label htmlFor="pdf-upload" className="upload-button">
-        {uploading ? "Uploading..." : "Upload PDF"}
+        {uploading ? "Uploading..." : "Upload PDFs"}
       </label>
 
       <input
         id="pdf-upload"
         type="file"
         accept=".pdf,application/pdf"
+        multiple
         onChange={handleFileChange}
         disabled={uploading}
         hidden
       />
-
-      {uploadResult && (
-        <div className="upload-success">
-          <p>✓ {uploadResult.filename}</p>
-          <small>{uploadResult.total_chunks} chunks processed</small>
-        </div>
-      )}
     </div>
   );
 }
