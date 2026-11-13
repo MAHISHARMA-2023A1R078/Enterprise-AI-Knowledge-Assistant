@@ -1,0 +1,11 @@
+
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic-settings
+python-dotenv
+ollama
+qdrant-client
+pypdf
+langchain-text-splitters
+prometheus-client

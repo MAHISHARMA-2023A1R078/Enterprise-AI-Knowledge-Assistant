@@ -1,0 +1,38 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Uploaded documents
+backend/uploads/
+*.pdf
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated data
+qdrant_storage/
+
+# Private keys and certificates
+*.key
+*.pem
+*.p12
+*.pfx
