@@ -370,3 +370,507 @@ After restarting Minikube, restart the required port-forward commands.
 ## Author
 
 Developed as an Enterprise AI Knowledge Assistant project, combining document-based question answering, local AI inference, vector search, Kubernetes deployment, and integrated observability.
+
+---
+
+# Latest Implementation Updates — CI/CD, Kubernetes Deployment & Observability
+
+This section documents the latest implementation updates to the Enterprise AI Knowledge Assistant, including automated CI/CD, GitHub Container Registry (GHCR), Kubernetes deployment through a Windows self-hosted runner, and the integrated observability stack.
+
+The original project documentation and architecture are retained above. This section extends the documentation with the latest verified implementation.
+
+## 1. Updated End-to-End System Architecture
+
+### 1.1 Application Architecture — RAG Workflow
+
+The application follows a Retrieval-Augmented Generation (RAG) architecture. Users interact with the React frontend, while the FastAPI backend handles document processing, retrieval, and answer generation.
+
+```mermaid
+flowchart TD
+    U[User] --> FE[React + Vite Frontend]
+    FE --> API[FastAPI Backend]
+
+    API --> UP[PDF Upload]
+    UP --> EXT[PDF Text Extraction]
+    EXT --> CH[Text Chunking]
+    CH --> EMB[Ollama Embedding Model]
+    EMB --> QD[(Qdrant Vector Database)]
+
+    API --> Q[User Question]
+    Q --> QE[Query Embedding]
+    QE --> RET[Similarity Search in Qdrant]
+    QD --> RET
+
+    RET --> CTX[Retrieved Context]
+    CTX --> LLM[Ollama - Qwen3:4B]
+    LLM --> ANS[Generated Answer]
+    ANS --> FE
+    FE --> U
+```
+
+**Application workflow:**
+
+1. The user uploads a PDF through the React frontend.
+2. The FastAPI backend extracts text from the document.
+3. Extracted text is divided into smaller chunks.
+4. The embedding model converts the chunks into vector representations.
+5. The vectors and associated document information are stored in Qdrant.
+6. When a user asks a question, the backend generates a query embedding.
+7. Qdrant retrieves relevant document chunks through similarity search.
+8. Retrieved context is passed to the Qwen3:4B language model through Ollama.
+9. The generated answer is returned to the frontend.
+
+### 1.2 Observability Architecture
+
+The project includes a monitoring and logging stack to observe application and infrastructure health.
+
+```mermaid
+flowchart TD
+    APP[Backend Application]
+    K8S[Kubernetes Cluster]
+
+    APP --> METRICS[Application / Available Metrics]
+    K8S --> NE[Node Exporter]
+    METRICS --> PROM[Prometheus]
+    NE --> PROM
+
+    APP --> LOGS[Container Logs]
+    K8S --> LOGS
+    LOGS --> ALLOY[Grafana Alloy]
+    ALLOY --> LOKI[Loki]
+
+    PROM --> GRAF[Grafana Dashboards]
+    LOKI --> GRAF
+```
+
+**Components:**
+
+- **Prometheus:** Collects and stores time-series metrics.
+- **Node Exporter:** Exposes host-level system metrics.
+- **Grafana Alloy:** Collects and forwards configured logs.
+- **Loki:** Stores and queries log data.
+- **Grafana:** Provides dashboards for visualizing metrics and logs.
+
+### 1.3 Automated CI/CD Architecture
+
+The project now includes automated Continuous Integration and Continuous Deployment using GitHub Actions, GHCR, a Windows self-hosted runner, and Minikube.
+
+```mermaid
+flowchart TD
+    DEV[Developer]
+    GIT[GitHub Repository - main]
+    CI[GitHub Actions - CI]
+
+    DEV --> GIT
+    GIT --> CI
+
+    CI --> PY[Backend Python Tests - pytest]
+    CI --> FE[Frontend Lint and Build]
+
+    PY --> CHECK{All CI Checks Successful?}
+    FE --> CHECK
+
+    CHECK -->|No| FAIL[Workflow Fails]
+    CHECK -->|Yes| BUILD[Build Docker Images]
+
+    BUILD --> GHCR[GitHub Container Registry]
+    GHCR --> TAGS[Publish latest and Commit SHA Tags]
+
+    TAGS --> CD[CD Workflow - workflow_run]
+    CD --> RUNNER[Windows Self-hosted Runner]
+
+    RUNNER --> CHECKOUT[Checkout Successful Commit]
+    CHECKOUT --> APPLY[kubectl apply]
+    APPLY --> K8S[Minikube Kubernetes Cluster]
+
+    K8S --> BACKEND[Backend Deployment]
+    K8S --> FRONTEND[Frontend Deployment]
+
+    BACKEND --> ROLLOUT[Rollout Verification]
+    FRONTEND --> ROLLOUT
+    ROLLOUT --> DONE[Deployment Completed]
+```
+
+**CI workflow:**
+
+1. A code push to the `main` branch triggers GitHub Actions.
+2. Backend dependencies are installed and Python tests run using pytest.
+3. Frontend dependencies are installed using `npm ci`.
+4. Frontend linting and production build are executed.
+5. Docker images for the backend and frontend are built.
+6. Images are published to GitHub Container Registry.
+7. Images are tagged with `latest` and the corresponding commit SHA.
+
+**CD workflow:**
+
+1. The deployment workflow listens for completion of the CI workflow.
+2. Deployment proceeds only when CI succeeds and the triggering event is a push to `main`.
+3. The Windows self-hosted runner checks out the successful commit.
+4. Kubernetes manifests are updated with the corresponding commit-specific image tags.
+5. `kubectl apply` applies the backend and frontend manifests to Minikube.
+6. Kubernetes rollout status is checked for both deployments.
+
+**Important:** The self-hosted runner connects the GitHub-hosted workflow system to the local Minikube environment. The laptop, Docker Desktop, Minikube, and runner must be available for automatic deployment.
+
+---
+
+## 2. CI/CD Implementation Details
+
+### GitHub Actions
+
+Workflow files:
+
+```text
+.github/
+└── workflows/
+    ├── ci.yml
+    └── deploy.yml
+```
+
+| Workflow     | Responsibility                                                        |
+| ------------ | --------------------------------------------------------------------- |
+| `ci.yml`     | Backend tests, frontend validation, Docker image build and publishing |
+| `deploy.yml` | Automated deployment to local Minikube after successful CI            |
+
+### GitHub Container Registry (GHCR)
+
+The following container images are published:
+
+```text
+ghcr.io/mahisharma-2023a1r078/enterprise-ai-knowledge-assistant/backend
+
+ghcr.io/mahisharma-2023a1r078/enterprise-ai-knowledge-assistant/frontend
+```
+
+Image tags include:
+
+- `latest` — latest published image.
+- Commit SHA — identifies the exact source revision used to build the image.
+
+The Kubernetes manifests use GHCR image references and:
+
+```yaml
+imagePullPolicy: Always
+```
+
+The CD workflow replaces the `latest` image tag with the successful commit SHA before applying the manifests.
+
+### Kubernetes deployment manifests
+
+```text
+deployment/
+└── kubernetes/
+    ├── backend.yaml
+    ├── frontend.yaml
+    └── alloy.yaml
+```
+
+The backend manifest includes its Deployment, Service, and upload PersistentVolumeClaim configuration. The frontend manifest includes its Deployment and Service.
+
+---
+
+## 3. Latest Deployment Verification
+
+The automated deployment was successfully verified using the following commit:
+
+```text
+1dda5336379d555d1657b2b415ac131d752b24ce
+```
+
+Both deployed images were confirmed to use this exact commit SHA:
+
+```text
+Backend:
+ghcr.io/mahisharma-2023a1r078/enterprise-ai-knowledge-assistant/backend:1dda5336379d555d1657b2b415ac131d752b24ce
+
+Frontend:
+ghcr.io/mahisharma-2023a1r078/enterprise-ai-knowledge-assistant/frontend:1dda5336379d555d1657b2b415ac131d752b24ce
+```
+
+### Kubernetes health verification
+
+The following command was used:
+
+```powershell
+kubectl get pods,deployments -n enterprise-ai
+```
+
+Verified workload status:
+
+| Component     | Verified status |
+| ------------- | --------------- |
+| Backend       | 1/1 Running     |
+| Frontend      | 1/1 Running     |
+| Prometheus    | 1/1 Running     |
+| Node Exporter | 1/1 Running     |
+| Loki          | 1/1 Running     |
+| Grafana Alloy | 1/1 Running     |
+| Grafana       | 1/1 Running     |
+
+All six deployments were reported as `1/1 READY`.
+
+### GitHub Actions verification
+
+- CI workflow run #9 — Successful.
+- Deployment workflow run #2 — Successful.
+- Backend and frontend Kubernetes rollouts — Successful.
+- Commit-specific GHCR images — Verified in Kubernetes deployment specifications.
+
+These results verify the automated CI/CD workflow and the successful application deployment to the local Minikube cluster.
+
+---
+
+## 4. Completed Project Deliverables
+
+The following implementation work has been completed or verified:
+
+- [x] React + Vite frontend.
+- [x] FastAPI backend.
+- [x] PDF-based document ingestion and RAG workflow.
+- [x] Ollama integration with Qwen3:4B.
+- [x] Ollama embedding model integration.
+- [x] Qdrant vector database integration.
+- [x] Docker containerization for backend and frontend.
+- [x] Kubernetes deployment manifests.
+- [x] Local Minikube deployment.
+- [x] Backend and frontend Kubernetes Services.
+- [x] Backend upload PersistentVolumeClaim configuration.
+- [x] Prometheus monitoring.
+- [x] Node Exporter integration.
+- [x] Loki log aggregation.
+- [x] Grafana Alloy log collection.
+- [x] Grafana dashboards.
+- [x] GitHub Actions CI workflow.
+- [x] Automated Python tests using pytest.
+- [x] Frontend linting and production build checks.
+- [x] Docker image publishing to GHCR.
+- [x] Commit-SHA-based image tagging.
+- [x] Windows self-hosted GitHub Actions runner.
+- [x] Automated Minikube deployment through GitHub Actions.
+- [x] Kubernetes rollout verification.
+
+---
+
+## 5. Remaining Tasks and Final Project Checklist
+
+The following items are the remaining project-level validation, documentation, and presentation tasks. They should only be marked complete after actual verification.
+
+### A. Final application validation
+
+- [ ] Perform a fresh PDF upload and verify document ingestion.
+- [ ] Ask multiple questions based on the uploaded PDF.
+- [ ] Verify that answers are grounded in retrieved document content.
+- [ ] Test frontend-backend communication.
+- [ ] Verify upload persistence after backend pod restart.
+- [ ] Review application logs for errors.
+
+### B. Observability validation
+
+- [ ] Verify Prometheus targets and Node Exporter availability.
+- [ ] Verify useful metrics are queryable in Prometheus.
+- [ ] Verify Alloy is forwarding logs to Loki.
+- [ ] Verify application and Kubernetes logs can be queried in Grafana.
+- [ ] Review dashboard panels and alerts, if configured.
+
+### C. CI/CD and security review
+
+- [ ] Verify the complete pipeline once more after a fresh code change.
+- [ ] Review GitHub Actions permissions and workflow triggers.
+- [ ] Review public-repository security risks associated with the self-hosted runner.
+- [ ] Ensure untrusted pull requests cannot execute arbitrary code on the local runner.
+- [ ] Review image publishing and registry access permissions.
+- [ ] Document runner startup and shutdown procedures.
+
+### D. Documentation and presentation
+
+- [ ] Capture screenshots of the application and PDF question-answering workflow.
+- [ ] Capture Kubernetes pod and deployment status.
+- [ ] Capture successful GitHub Actions CI and CD runs.
+- [ ] Capture GHCR backend and frontend image tags.
+- [ ] Capture Grafana dashboards and relevant log queries.
+- [ ] Prepare the final architecture and technology explanation.
+- [ ] Rehearse the complete project demonstration.
+
+### E. Deployment limitations and future improvements
+
+The current deployment is a local Minikube-based implementation using a Windows self-hosted runner. It is not yet a production-grade, highly available cloud deployment.
+
+Possible future improvements:
+
+- Deploy to a managed Kubernetes cluster.
+- Add automated rollback and deployment notifications.
+- Introduce stronger secret management.
+- Add comprehensive integration and end-to-end tests.
+- Configure production-grade ingress, TLS, and access controls.
+- Add resource requests, limits, and autoscaling.
+- Improve backup and recovery for uploaded documents and vector data.
+
+---
+
+## 6. Local Environment — Stop and Start Instructions
+
+The application is deployed on a local Minikube cluster. The cluster and its workloads can be stopped and started without rebuilding the application, provided their persistent data and configuration are retained.
+
+### 6.1 Safely stop the environment
+
+Before shutting down, stop the foreground processes in their respective terminals.
+
+**Step 1 — Stop the application port-forward**
+
+If a terminal is running the Kubernetes port-forward command, press:
+
+```text
+Ctrl + C
+```
+
+This stops the port-forward process only. It does not delete the application or Kubernetes resources.
+
+**Step 2 — Stop the GitHub self-hosted runner**
+
+Go to the separate PowerShell terminal running the runner:
+
+```powershell
+cd C:\actions-runner
+```
+
+Press:
+
+```text
+Ctrl + C
+```
+
+This stops the runner from listening for new GitHub Actions jobs. It does not uninstall or unregister the runner.
+
+**Step 3 — Stop Minikube**
+
+In a normal PowerShell terminal:
+
+```powershell
+minikube stop
+```
+
+This stops the local Kubernetes cluster while preserving its cluster resources.
+
+**Step 4 — Close Docker Desktop**
+
+After Minikube has stopped successfully, Docker Desktop can be exited from the Windows system tray if Docker is no longer needed.
+
+Do not force-close Docker Desktop while Minikube is still running.
+
+### 6.2 Start the environment again
+
+**Step 1 — Start Docker Desktop**
+
+Open Docker Desktop and wait until its engine is running.
+
+**Step 2 — Start Minikube**
+
+Open PowerShell:
+
+```powershell
+minikube start
+```
+
+Check the cluster:
+
+```powershell
+kubectl config current-context
+kubectl get nodes
+```
+
+The context should be `minikube`, and the node should show `Ready`.
+
+**Step 3 — Verify Kubernetes workloads**
+
+```powershell
+kubectl get pods,deployments,services -n enterprise-ai
+```
+
+Wait until the required pods are running and deployments are ready.
+
+**Step 4 — Start the self-hosted runner**
+
+Open a separate PowerShell window:
+
+```powershell
+cd C:\actions-runner
+.\run.cmd
+```
+
+Wait for:
+
+```text
+Connected to GitHub
+Listening for Jobs
+```
+
+Keep this terminal open whenever automatic CD is required.
+
+**Step 5 — Start application access through ingress**
+
+Open another PowerShell terminal and run:
+
+```powershell
+kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8081:80
+```
+
+Keep this terminal open.
+
+Open the application in the browser:
+
+```text
+http://enterprise-ai.local:8081
+```
+
+If the application URL does not resolve, verify that the Windows hosts entry for `enterprise-ai.local` is still configured correctly.
+
+### 6.3 Useful verification commands
+
+```powershell
+# Check Minikube status
+minikube status
+
+# Check Kubernetes node
+kubectl get nodes
+
+# Check all application workloads
+kubectl get pods,deployments,services -n enterprise-ai
+
+# Check ingress
+kubectl get ingress -n enterprise-ai
+
+# Check backend logs
+kubectl logs deployment/backend -n enterprise-ai --tail=50
+
+# Check frontend logs
+kubectl logs deployment/frontend -n enterprise-ai --tail=50
+
+# Check deployed images
+kubectl get deployments backend frontend -n enterprise-ai -o custom-columns="NAME:.metadata.name,IMAGE:.spec.template.spec.containers[0].image"
+
+# Check Docker containers
+docker ps
+```
+
+**Important operational notes:**
+
+- `Ctrl + C` stops only the foreground process in that terminal.
+- Do not use `kubectl delete` to shut down the environment.
+- Do not run `minikube delete` unless intentionally removing the cluster.
+- Do not remove Docker volumes or Kubernetes PersistentVolumeClaims if uploaded documents or other persistent data must be retained.
+- Keep Docker Desktop running while Minikube is running with the Docker driver.
+- Keep the Windows self-hosted runner terminal open for automatic GitHub Actions deployment.
+- If Ollama is running separately on Windows, ensure its service and required models are available before testing RAG functionality.
+- Kubernetes workloads normally restart when Minikube starts again, but verify their readiness before using the application.
+
+---
+
+## 7. Final Project Status
+
+The project has progressed from a locally developed RAG application to a containerized Kubernetes deployment with integrated monitoring, centralized logging, and automated CI/CD.
+
+The latest verified milestone is successful automated deployment of commit `1dda5336379d555d1657b2b415ac131d752b24ce` to the local Minikube cluster using GitHub Actions and a Windows self-hosted runner.
+
+The remaining work focuses on final functional validation, observability checks, security review, evidence collection, and project demonstration preparation.
+
+---
