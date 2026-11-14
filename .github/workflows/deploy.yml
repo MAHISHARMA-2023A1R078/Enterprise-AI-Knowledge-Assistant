@@ -26,7 +26,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy application to Minikube
-        shell: pwsh
+        shell: powershell
         env:
           IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
           IMAGE_PREFIX: ghcr.io/mahisharma-2023a1r078/enterprise-ai-knowledge-assistant
