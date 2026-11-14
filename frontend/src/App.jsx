@@ -30,9 +30,7 @@ function App() {
 
   const handleUpload = async (files) => {
     setError("");
-
     const failedUploads = [];
-
     setUploading(true);
 
     try {
@@ -78,9 +76,7 @@ function App() {
       `Are you sure you want to delete "${document.filename}"?\n\nThis will also delete its stored chunks from the knowledge base.`,
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setError("");
     setDeletingDocumentId(document.document_id);
@@ -133,7 +129,7 @@ function App() {
     <div className="app-layout">
       <aside className="left-sidebar">
         <div className="brand">
-          <div className="brand-icon">âœ¦</div>
+          <div className="brand-icon">✦</div>
           <div>
             <h1>Knowledge AI</h1>
             <span>Enterprise Assistant</span>
@@ -143,7 +139,7 @@ function App() {
         <div className="sidebar-section">
           <p className="section-label">WORKSPACE</p>
           <div className="workspace-item">
-            <span>â—ˆ</span>
+            <span>◈</span>
             <span>Knowledge Base</span>
           </div>
         </div>
@@ -157,21 +153,23 @@ function App() {
             <div className="document-card" key={document.document_id}>
               <span className="pdf-icon">PDF</span>
 
-              <div className="document-info">
-                <strong>{document.filename}</strong>
-                <small>{document.total_chunks} chunks processed</small>
-              </div>
+              <div className="document-card-content">
+                <div className="document-info">
+                  <strong>{document.filename}</strong>
+                  <small>{document.total_chunks} chunks processed</small>
+                </div>
 
-              <button
-                type="button"
-                className="delete-document-button"
-                onClick={() => handleDelete(document)}
-                disabled={deletingDocumentId !== null}
-              >
-                {deletingDocumentId === document.document_id
-                  ? "Deleting..."
-                  : "Delete"}
-              </button>
+                <button
+                  type="button"
+                  className="delete-document-button"
+                  onClick={() => handleDelete(document)}
+                  disabled={deletingDocumentId !== null}
+                >
+                  {deletingDocumentId === document.document_id
+                    ? "Deleting..."
+                    : "Delete"}
+                </button>
+              </div>
             </div>
           ))}
 
@@ -234,11 +232,13 @@ function App() {
             </div>
 
             <button
+              type="button"
               className="close-sources"
               onClick={() => setActiveSources(null)}
               aria-label="Close sources"
+              title="Close sources"
             >
-              Ã—
+              ×
             </button>
           </div>
 

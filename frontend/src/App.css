@@ -195,9 +195,6 @@
   border-color: #c0baff;
 }
 
-/* Hide duplicate upload confirmation.
-   PDF details are already shown in document-card. */
-
 .upload-success {
   display: none;
 }
@@ -239,8 +236,20 @@
   font-weight: 700;
 }
 
-.document-info {
+/* Document details and delete button wrapper */
+
+.document-card-content {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+
+  min-width: 0;
+}
+
+.document-info {
+  width: 100%;
   min-width: 0;
 }
 
@@ -268,10 +277,12 @@
 /* DELETE DOCUMENT BUTTON */
 
 .delete-document-button {
-  flex-shrink: 0;
-  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-  padding: 6px 9px;
+  flex-shrink: 0;
+  padding: 6px 10px;
 
   color: #ffb5bb;
   background: rgba(220, 70, 84, 0.12);
@@ -698,6 +709,7 @@
   font-size: 12px;
   font-weight: 600;
 
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
@@ -820,6 +832,7 @@
   font-size: 22px;
   font-weight: 600;
 
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
@@ -887,6 +900,8 @@
   font-size: 11px;
 }
 
+/* SOURCES CLOSE BUTTON */
+
 .close-sources {
   display: flex;
   align-items: center;
@@ -894,15 +909,20 @@
 
   width: 33px;
   height: 33px;
+  min-width: 33px;
+  padding: 0;
 
   color: #64718a;
   background: #f0f2f9;
   border: 1px solid #e8ebf3;
   border-radius: 9px;
 
-  font-size: 19px;
+  font-family: Arial, sans-serif;
+  font-size: 23px;
+  font-weight: 400;
   line-height: 1;
 
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
@@ -1159,7 +1179,9 @@
   }
 }
 
-/* Fix numbered and bulleted lists in AI responses */
+/* ==========================================
+   AI RESPONSE LIST FORMATTING
+========================================== */
 
 .message-text ol {
   list-style-type: decimal;
