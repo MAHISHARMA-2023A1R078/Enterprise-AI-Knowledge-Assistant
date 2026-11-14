@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: enterprise-ai-frontend:latest
-          imagePullPolicy: Never
+          image: ghcr.io/mahisharma-2023a1r078/enterprise-ai-knowledge-assistant/frontend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
 ---

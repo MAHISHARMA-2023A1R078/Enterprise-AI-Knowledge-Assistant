@@ -1,0 +1,55 @@
+name: Deploy Enterprise AI Knowledge Assistant to Minikube
+
+on:
+  workflow_run:
+    workflows:
+      - Enterprise AI Knowledge Assistant CI/CD
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Local Minikube
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: self-hosted
+    steps:
+      - name: Checkout successful commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy application to Minikube
+        shell: pwsh
+        env:
+          IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+          IMAGE_PREFIX: ghcr.io/mahisharma-2023a1r078/enterprise-ai-knowledge-assistant
+        run: |
+          $backendManifest = Get-Content deployment/kubernetes/backend.yaml -Raw
+          $frontendManifest = Get-Content deployment/kubernetes/frontend.yaml -Raw
+
+          $backendManifest = $backendManifest.Replace("backend:latest", "backend:$env:IMAGE_TAG")
+          $frontendManifest = $frontendManifest.Replace("frontend:latest", "frontend:$env:IMAGE_TAG")
+
+          Set-Content deployment/kubernetes/backend.yaml -Value $backendManifest -NoNewline
+          Set-Content deployment/kubernetes/frontend.yaml -Value $frontendManifest -NoNewline
+
+          kubectl apply -f deployment/kubernetes/backend.yaml
+          if ($LASTEXITCODE -ne 0) { throw "Backend deployment apply failed" }
+
+          kubectl apply -f deployment/kubernetes/frontend.yaml
+          if ($LASTEXITCODE -ne 0) { throw "Frontend deployment apply failed" }
+
+          kubectl rollout status deployment/backend -n enterprise-ai --timeout=180s
+          if ($LASTEXITCODE -ne 0) { throw "Backend rollout failed" }
+
+          kubectl rollout status deployment/frontend -n enterprise-ai --timeout=180s
+          if ($LASTEXITCODE -ne 0) { throw "Frontend rollout failed" }
+
+          kubectl get deployments -n enterprise-ai
