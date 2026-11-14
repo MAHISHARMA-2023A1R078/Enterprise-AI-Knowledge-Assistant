@@ -1,0 +1,116 @@
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: enterprise-ai-backend
+    ports:
+      - "8000:8000"
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_CHAT_MODEL: qwen3:4b
+      OLLAMA_EMBEDDING_MODEL: qwen3-embedding:0.6b
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: pdf_documents
+    volumes:
+      - ../backend/uploads:/app/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - enterprise-ai-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: enterprise-ai-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - enterprise-ai-network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: enterprise-ai-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - enterprise-ai-network
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: enterprise-ai-node-exporter
+    ports:
+      - "9100:9100"
+    command:
+      - "--path.rootfs=/host"
+    volumes:
+      - /:/host:ro
+    networks:
+      - enterprise-ai-network
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.5.0
+    container_name: enterprise-ai-loki
+    ports:
+      - "3100:3100"
+    command:
+      - "-config.file=/etc/loki/local-config.yaml"
+    volumes:
+      - ../monitoring/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - enterprise-ai-network
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.10.2
+    container_name: enterprise-ai-alloy
+    ports:
+      - "12345:12345"
+    command:
+      - "run"
+      - "--server.http.listen-addr=0.0.0.0:12345"
+      - "/etc/alloy/config.alloy"
+    volumes:
+      - ../monitoring/alloy-config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    networks:
+      - enterprise-ai-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: enterprise-ai-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - enterprise-ai-network
+    restart: unless-stopped
+
+volumes:
+  loki_data:
+  grafana_data:
+
+networks:
+  enterprise-ai-network:
+    external: true
